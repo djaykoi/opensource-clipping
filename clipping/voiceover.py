@@ -8,8 +8,12 @@ to speech using edge-tts. Supports word-level subtitle generation.
 import os
 import json
 import asyncio
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:  # optional: not needed in DJ mode
+    genai = None
+    types = None
 
 try:
     import edge_tts

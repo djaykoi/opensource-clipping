@@ -10,7 +10,10 @@ import re
 import time
 
 from yt_dlp import YoutubeDL
-from faster_whisper import WhisperModel
+try:
+    from faster_whisper import WhisperModel
+except ImportError:  # optional: not needed in DJ mode
+    WhisperModel = None
 
 
 # ==============================================================================

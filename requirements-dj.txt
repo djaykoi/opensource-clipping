@@ -1,0 +1,9 @@
+# Minimal dependencies for DJ mode (--dj-mode). Does not pin numpy,
+# so it does not break preinstalled packages on Google Colab.
+yt-dlp
+mediapipe
+opencv-python-headless
+Pillow
+requests
+python-dotenv
+numpy

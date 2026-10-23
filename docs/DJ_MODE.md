@@ -11,6 +11,9 @@ Ouvre [`notebooks/DJ_Mode_Colab.ipynb`](../notebooks/DJ_Mode_Colab.ipynb) dans G
 ## En ligne de commande
 
 ```bash
+# Dépendances légères du mode DJ (pas de Whisper, torch ni Gemini)
+pip install -r requirements-dj.txt
+
 # Depuis YouTube
 python main.py --url "https://www.youtube.com/watch?v=..." --dj-mode \
   --clips 8 --dj-title "Hello World Mix 9" --dj-hashtags "#afrohouse #djset #helloworldmix"
