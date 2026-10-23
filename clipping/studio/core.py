@@ -166,7 +166,7 @@ def proses_klip(
         "ratio": rasio,
         "video_path": out_vid,
         "thumbnail_path": out_thm,
-        "thumbnail_text": judul_en or judul or f"Highlight {rank}",
+        "thumbnail_text": clip.get("thumbnail_text") or judul_en or judul or f"Highlight {rank}",
         "youtube_title_final": clip.get(
             "youtube_title_final", clip.get("title_inggris", "")
         ),
@@ -1080,7 +1080,7 @@ def proses_klip(
                     if os.path.exists(glow_full_path):
                         os.remove(glow_full_path)
 
-        judul_thumbnail = judul_en or judul or f"Highlight {rank}"
+        judul_thumbnail = clip.get("thumbnail_text") or judul_en or judul or f"Highlight {rank}"
         buat_thumbnail(out_vid, out_thm, judul_thumbnail, cfg)
 
         manifest_item["status"] = "success"

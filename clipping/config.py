@@ -696,6 +696,32 @@ def _build_parser() -> argparse.ArgumentParser:
         "--dj-hashtags", type=str, default="#djset #house #dj",
         help="Hashtags added to every clip (2-3 recommended).",
     )
+    dj_group.add_argument(
+        "--dj-include", nargs="+", default=None, metavar="RANGE",
+        help="Always make a clip inside these time ranges, e.g. '0:00-6:00' (your own track) "
+             "or '24:00' (3-minute window). These clips come first.",
+    )
+    dj_group.add_argument(
+        "--dj-include-label", type=str, default=None,
+        help="Label for forced clips in titles (e.g. the track name).",
+    )
+    dj_group.add_argument(
+        "--dj-thumb-text", type=str, default="HELLO WORLD MIX",
+        help="Text written on every thumbnail in DJ mode.",
+    )
+    dj_group.add_argument(
+        "--transition", choices=["glitch", "mire"], default=None,
+        help="Transition between hook and clip: 'glitch' (VHS noise) or 'mire' "
+             "(retro TV colour bars + 1 kHz beep). Default: mire in DJ mode, glitch otherwise.",
+    )
+    dj_group.add_argument(
+        "--mire-duration", type=float, default=1.0,
+        help="Length of the TV test card transition in seconds.",
+    )
+    dj_group.add_argument(
+        "--mire-beep-db", type=float, default=-18.0,
+        help="Level of the 1 kHz beep in dBFS (keep it at -15 dB or lower).",
+    )
 
     # --- Voice-Over Commentary Pipeline ---
     vo_group = p.add_argument_group("Voice-Over Commentary (TTS)")
@@ -1012,6 +1038,12 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         dj_bpm=args.dj_bpm,
         dj_title=args.dj_title,
         dj_hashtags=args.dj_hashtags,
+        dj_include=args.dj_include,
+        dj_include_label=args.dj_include_label,
+        dj_thumb_text=args.dj_thumb_text,
+        transition_style=args.transition or ("mire" if args.dj_mode else "glitch"),
+        mire_duration=args.mire_duration,
+        mire_beep_db=min(args.mire_beep_db, -15.0),
     )
 
     # DJ mode: music-safe defaults (no speech-based overlays, no extra music).

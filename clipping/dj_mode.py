@@ -200,6 +200,7 @@ def detect_moments(
     min_gap: float = 90.0,
     min_rise_db: float = 6.0,
     skip_edges: float = 20.0,
+    include_ranges: list[tuple[float, float]] | None = None,
 ) -> tuple[list[dict], dict]:
     """Return a list of moments (drops first, then peaks) and debug curves."""
     fps = feats["fps"]
@@ -239,16 +240,14 @@ def detect_moments(
     drop_score_masked = np.where(valid, drop_score, -np.inf)
 
     min_dist = int(min_gap * fps)
-    drop_idx = _pick_peaks(drop_score_masked, min_dist, threshold=min_rise_db, max_n=n_clips)
-
-    moments: list[dict] = []
     half_beat = int(0.5 * beat * fps)
     # The 4-bar medians only place a drop within ±2 bars. Refine with a 1-bar
     # before/after contrast on the raw bass curve, then snap to the kick onset.
     raw_low = feats["low"].astype(np.float64)
     csum = np.concatenate([[0.0], np.cumsum(raw_low)])
     one_bar = max(1, int(round(bar * fps)))
-    for i in drop_idx:
+
+    def _refine(i: int) -> int:
         lo = max(one_bar, i - 2 * one_bar)
         hi = min(raw_low.size - one_bar, i + 2 * one_bar)
         if hi > lo:
@@ -258,7 +257,42 @@ def detect_moments(
             i = int(cand[np.argmax(after_1 - before_1)])
         lo = max(0, i - half_beat)
         hi = min(feats["low_flux"].size, i + half_beat + 1)
-        j = lo + int(np.argmax(feats["low_flux"][lo:hi]))
+        return lo + int(np.argmax(feats["low_flux"][lo:hi]))
+
+    moments: list[dict] = []
+
+    # Forced moments: the best drop inside each requested time range, whatever
+    # its strength (e.g. the artist's own track at the start of the set).
+    for rs, re_ in include_ranges or []:
+        a = max(0, int(rs * fps))
+        b = min(drop_score.size, int(re_ * fps))
+        if b - a < one_bar:
+            continue
+        seg = drop_score[a:b].copy()
+        seg_valid = loudness_after[a:b] > -6.0
+        # Keep room for the build-up when the range starts at 0.
+        seg_valid[: max(0, int(pre_bars * bar * fps) - a)] = False
+        if not seg_valid.any():
+            seg_valid[:] = True
+        i = a + int(np.argmax(np.where(seg_valid, seg, -np.inf)))
+        kind = "drop" if rise[i] >= 2.0 else "peak"
+        j = _refine(i) if kind == "drop" else i
+        moments.append({
+            "kind": kind,
+            "anchor": float(times[j]),
+            "score": float(drop_score[i]),
+            "rise_db": float(rise[i]),
+            "forced": True,
+            "range": [float(rs), float(re_)],
+        })
+        drop_score_masked[max(0, j - min_dist):j + min_dist] = -np.inf
+
+    drop_idx = _pick_peaks(
+        drop_score_masked, min_dist, threshold=min_rise_db,
+        max_n=max(0, n_clips - len(moments)),
+    )
+    for i in drop_idx:
+        j = _refine(i)
         moments.append({
             "kind": "drop",
             "anchor": float(times[j]),
@@ -323,6 +357,37 @@ def detect_moments(
 # OUTPUT
 # ==============================================================================
 
+def _parse_tc(text: str) -> float:
+    """'1:23:45', '12:30', '90' -> seconds."""
+    parts = [float(p) for p in str(text).strip().split(":")]
+    sec = 0.0
+    for p in parts:
+        sec = sec * 60 + p
+    return sec
+
+
+def parse_ranges(specs, duration: float) -> list[tuple[float, float]]:
+    """Parse ['0:00-6:00', '24:00'] into (start, end) seconds.
+
+    A single timecode means a 3-minute window starting there.
+    """
+    out = []
+    for spec in specs or []:
+        spec = str(spec).strip()
+        if not spec:
+            continue
+        if "-" in spec:
+            a, b = spec.split("-", 1)
+            s, e = _parse_tc(a), _parse_tc(b)
+        else:
+            s = _parse_tc(spec)
+            e = s + 180.0
+        s, e = max(0.0, s), min(duration, e)
+        if e > s:
+            out.append((s, e))
+    return out
+
+
 def _fmt_tc(t: float) -> str:
     t = int(round(t))
     h, rem = divmod(t, 3600)
@@ -337,13 +402,17 @@ def build_clip_json(moments: list[dict], cfg, bpm: float) -> list[dict]:
     hook_dur = float(getattr(cfg, "durasi_hook", 3))
 
     # Rank by score inside each kind, drops before peaks.
-    drops = sorted([m for m in moments if m["kind"] == "drop"], key=lambda m: -m["score"])
-    peaks = sorted([m for m in moments if m["kind"] == "peak"], key=lambda m: -m["score"])
-    ordered = drops + peaks
+    forced = [m for m in moments if m.get("forced")]
+    rest = [m for m in moments if not m.get("forced")]
+    drops = sorted([m for m in rest if m["kind"] == "drop"], key=lambda m: -m["score"])
+    peaks = sorted([m for m in rest if m["kind"] == "peak"], key=lambda m: -m["score"])
+    ordered = forced + drops + peaks
 
     clips = []
     for rank, m in enumerate(ordered, start=1):
         label = "Drop" if m["kind"] == "drop" else "Peak"
+        if m.get("forced"):
+            label = getattr(cfg, "dj_include_label", None) or label
         name = f"{title} — {label} {rank}"
         tc = _fmt_tc(m["anchor"])
         hook_start = m["anchor"]
@@ -360,6 +429,7 @@ def build_clip_json(moments: list[dict], cfg, bpm: float) -> list[dict]:
             "hook": {"text": "", "start_time": hook_start, "end_time": hook_end},
             "hook_start_time": hook_start,
             "hook_end_time": hook_end,
+            "thumbnail_text": (getattr(cfg, "dj_thumb_text", None) or "HELLO WORLD MIX"),
             "title_inggris": name,
             "title_indonesia": name,
             "description_hook": name,
@@ -374,6 +444,7 @@ def build_clip_json(moments: list[dict], cfg, bpm: float) -> list[dict]:
                 f"score {m['score']:.2f}"
             ),
             "dj_kind": m["kind"],
+            "dj_forced": bool(m.get("forced")),
             "dj_anchor_time": round(m["anchor"], 3),
             "broll_list": [],
             "typography_plan": [],
@@ -440,6 +511,7 @@ def find_moments(cfg) -> list[dict]:
         post_bars=getattr(cfg, "dj_post_bars", 16),
         min_gap=getattr(cfg, "dj_min_gap", 90.0),
         min_rise_db=getattr(cfg, "dj_min_rise", 6.0),
+        include_ranges=parse_ranges(getattr(cfg, "dj_include", None), feats["duration"]),
     )
     clips = build_clip_json(moments, cfg, bpm)
 
@@ -447,7 +519,7 @@ def find_moments(cfg) -> list[dict]:
     print(f"   ✅ {n_drop} drop(s) + {len(clips) - n_drop} peak(s) sélectionnés :")
     for c in clips:
         print(
-            f"      #{c['rank']:<2} {c['dj_kind']:<4} @ {_fmt_tc(c['dj_anchor_time']):>8}  "
+            f"      #{c['rank']:<2} {('forcé' if c['dj_forced'] else c['dj_kind']):<5} @ {_fmt_tc(c['dj_anchor_time']):>8}  "
             f"[{_fmt_tc(c['start_time'])} → {_fmt_tc(c['end_time'])}]  {c['alasan'].split('— ')[-1]}"
         )
 

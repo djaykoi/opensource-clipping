@@ -31,7 +31,7 @@ python main.py --url "/chemin/vers/set.mp4" --source local --dj-mode --clips 8
 5. **Fenêtre en mesures entières** : 8 mesures de montée avant le drop, 16 mesures après (réglable).
 6. **Complément** : s'il y a moins de drops que de clips demandés, les clips restants sont pris sur les passages les plus énergiques (« peaks »).
 
-Structure d'un clip : **hook de 3 s sur le drop → transition glitch → montée → drop → pleine énergie**.
+Structure d'un clip : **hook de 3 s sur le drop → mire TV + bip → montée → drop → pleine énergie**.
 
 ## Options
 
@@ -46,6 +46,11 @@ Structure d'un clip : **hook de 3 s sur le drop → transition glitch → monté
 | `--dj-bpm` | auto | Force le tempo. |
 | `--dj-title` | `DJ Set` | Titre des clips, miniatures et métadonnées. |
 | `--dj-hashtags` | `#djset #house #dj` | Hashtags ajoutés à chaque clip. |
+| `--dj-include` | — | Force un clip dans une plage, ex. `0:00-6:00` pour ton propre titre en ouverture. Plusieurs plages possibles. Ces clips passent en premier. |
+| `--dj-include-label` | — | Nom affiché pour les clips forcés (ex. le titre du morceau). |
+| `--dj-thumb-text` | `HELLO WORLD MIX` | Texte écrit sur toutes les miniatures. |
+| `--transition` | `mire` | Transition entre le hook et le clip : `mire` (mire TV + bip 1 kHz) ou `glitch`. |
+| `--mire-beep-db` | `-18` | Niveau du bip (plafonné à −15 dB). |
 | `--hook-duration` | `3` | Durée du hook (s) en début de clip. `--no-hook` pour le retirer. |
 
 ## Fichiers produits (`outputs/`)

@@ -70,6 +70,40 @@ def siapkan_glitch_video(rasio, cfg, video_encoder, source_h=1080, custom_dims=N
     else:
         out_w, out_h = _get_render_dims(cfg, rasio, source_h=source_h)
 
+    # --- Retro TV test card ("mire") + 1 kHz beep ---
+    if getattr(cfg, "transition_style", "glitch") == "mire":
+        mire_ts = f"mire_ready_{out_w}x{out_h}.ts"
+        if os.path.exists(mire_ts):
+            return mire_ts
+        duration = float(getattr(cfg, "mire_duration", 1.0))
+        beep_db = float(getattr(cfg, "mire_beep_db", -18.0))
+        # The sine source already peaks at -18 dBFS (amplitude 1/8).
+        beep_gain = 10 ** ((beep_db + 18.0) / 20.0)
+        print(f"📺 Génération de la mire TV ({duration:.1f} s, bip 1 kHz à {beep_db:.0f} dB)...", flush=True)
+        fade = min(0.02, duration / 10)
+        cmd = (
+            [
+                "ffmpeg", "-y",
+                "-f", "lavfi",
+                "-i", f"smptehdbars=s={out_w}x{out_h}:r=30:d={duration}",
+                "-f", "lavfi",
+                "-i", f"sine=frequency=1000:sample_rate=48000:duration={duration}",
+                "-filter_complex",
+                (
+                    f"[0:v]noise=alls=6:allf=t,setsar=1[v];"
+                    f"[1:a]volume={beep_gain:.4f},"
+                    f"afade=t=in:d={fade},afade=t=out:st={duration - fade}:d={fade},"
+                    f"aformat=channel_layouts=stereo[a]"
+                ),
+                "-map", "[v]", "-map", "[a]",
+                "-t", str(duration),
+            ]
+            + get_ts_encode_args(video_encoder, fps=30)
+            + [mire_ts]
+        )
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return mire_ts
+
     # Use dimensions in filename to allow multiple cached versions
     glitch_ts = f"glitch_ready_{out_w}x{out_h}.ts"
     if os.path.exists(glitch_ts):
