@@ -238,7 +238,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--source",
-        choices=["youtube", "tiktok", "instagram", "gdrive"],
+        choices=["youtube", "tiktok", "instagram", "gdrive", "local"],
         default=SOURCE_PLATFORM,
         help="Video source platform. Determines download behavior and subtitle availability.",
     )
@@ -657,6 +657,46 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip source downloads and use existing cached files.",
     )
 
+    # --- DJ Mode (audio-driven selection for DJ sets / music) ---
+    dj_group = p.add_argument_group("DJ Mode")
+    dj_group.add_argument(
+        "--dj-mode",
+        action="store_true",
+        default=False,
+        help=(
+            "Select clips from the audio (drops, energy peaks) instead of Whisper + AI. "
+            "No API key needed. Also turns off subtitles, B-roll, BGM and voice-over."
+        ),
+    )
+    dj_group.add_argument(
+        "--dj-pre-bars", type=int, default=8,
+        help="Bars of build-up kept before each drop.",
+    )
+    dj_group.add_argument(
+        "--dj-post-bars", type=int, default=16,
+        help="Bars kept after each drop.",
+    )
+    dj_group.add_argument(
+        "--dj-min-gap", type=float, default=90.0,
+        help="Minimum seconds between two selected moments.",
+    )
+    dj_group.add_argument(
+        "--dj-min-rise", type=float, default=6.0,
+        help="Minimum bass rise (dB) for a moment to count as a drop.",
+    )
+    dj_group.add_argument(
+        "--dj-bpm", type=float, default=None,
+        help="Force the tempo instead of auto-detecting it.",
+    )
+    dj_group.add_argument(
+        "--dj-title", type=str, default="DJ Set",
+        help="Title used for clip names, thumbnails and metadata (e.g. 'Hello World Mix 9').",
+    )
+    dj_group.add_argument(
+        "--dj-hashtags", type=str, default="#djset #house #dj",
+        help="Hashtags added to every clip (2-3 recommended).",
+    )
+
     # --- Voice-Over Commentary Pipeline ---
     vo_group = p.add_argument_group("Voice-Over Commentary (TTS)")
     vo_group.add_argument(
@@ -963,6 +1003,27 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         watermark_padding=args.padding,
         watermark_font_size=args.watermark_font_size,
         watermark_scale=args.watermark_scale,
+        # DJ Mode
+        dj_mode=args.dj_mode,
+        dj_pre_bars=args.dj_pre_bars,
+        dj_post_bars=args.dj_post_bars,
+        dj_min_gap=args.dj_min_gap,
+        dj_min_rise=args.dj_min_rise,
+        dj_bpm=args.dj_bpm,
+        dj_title=args.dj_title,
+        dj_hashtags=args.dj_hashtags,
     )
+
+    # DJ mode: music-safe defaults (no speech-based overlays, no extra music).
+    if cfg.dj_mode:
+        cfg.no_subs = True
+        cfg.use_karaoke_effect = False
+        cfg.use_broll = False
+        cfg.use_auto_bgm = False
+        cfg.voiceover = False
+        cfg.use_split_screen = False
+        cfg.use_camera_switch = False
+        cfg.hook_v2 = False
+        cfg.no_segment_trim = True
 
     return cfg

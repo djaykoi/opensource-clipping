@@ -25,6 +25,9 @@
 
 ---
 
+> 🎧 **DJ Mode (`--dj-mode`)** — Clip DJ sets and music videos from the audio: drops and energy peaks are detected automatically, no API key needed.
+> 👉 **[DJ Mode documentation (FR)](docs/DJ_MODE.md)** · **[Colab notebook](notebooks/DJ_Mode_Colab.ipynb)**
+
 ## ✨ Features
 
 | Feature | Description |

@@ -25,6 +25,7 @@ def _print_banner(cfg, version, url, idx=None, total=None):
         "tiktok": "TikTok",
         "instagram": "Instagram",
         "gdrive": "Google Drive",
+        "local": "Local file",
     }
     platform_key = getattr(cfg, "source_platform", "youtube")
     platform_label = _PLATFORM_LABELS.get(platform_key, platform_key)
@@ -49,8 +50,12 @@ def _print_banner(cfg, version, url, idx=None, total=None):
     if cfg.use_split_screen:
         print(f"   Dynamic Split: {'ON' if cfg.use_dynamic_split else 'OFF'}")
         print(f"   Split Trigger: {cfg.split_trigger}")
-    print(f"   Whisper     : {cfg.whisper_model} ({cfg.whisper_device})")
-    print(f"   Gemini      : {cfg.gemini_model}")
+    if getattr(cfg, "dj_mode", False):
+        print(f"   DJ Mode     : ON (audio drops) — {cfg.dj_title}")
+        print(f"   Clip length : {cfg.dj_pre_bars} bars before + {cfg.dj_post_bars} bars after drop")
+    else:
+        print(f"   Whisper     : {cfg.whisper_model} ({cfg.whisper_device})")
+        print(f"   Gemini      : {cfg.gemini_model}")
     if getattr(cfg, "watermark_enabled", False):
         wm_type = "Text" if cfg.watermark_text else "Image"
         wm_content = cfg.watermark_text or cfg.watermark_image or "-"
@@ -131,7 +136,7 @@ def main():
         return
 
     # ── Normal Auto-Clip Mode ────────────────────────────────────────
-    if not cfg.api_key_gemini:
+    if not cfg.api_key_gemini and not getattr(cfg, "dj_mode", False):
         print("❌ ERROR: GOOGLE_API_KEY environment variable tidak ditemukan.")
         print("   Set via: export GOOGLE_API_KEY='your-key' atau buat file .env")
         sys.exit(1)
@@ -165,16 +170,17 @@ def main():
     
     # Pre-load Whisper model for batch mode to avoid reloading per URL
     global_whisper_model = None
-    try:
-        from faster_whisper import WhisperModel
-        print(f"⏳ Pre-loading Whisper model '{cfg.whisper_model}' for batch processing...")
-        global_whisper_model = WhisperModel(
-            cfg.whisper_model, 
-            device=cfg.whisper_device, 
-            compute_type=cfg.whisper_compute_type
-        )
-    except Exception as e:
-        print(f"⚠️ Failed to pre-load Whisper model: {e}")
+    if not getattr(cfg, "dj_mode", False):  # DJ mode does not transcribe
+        try:
+            from faster_whisper import WhisperModel
+            print(f"⏳ Pre-loading Whisper model '{cfg.whisper_model}' for batch processing...")
+            global_whisper_model = WhisperModel(
+                cfg.whisper_model,
+                device=cfg.whisper_device,
+                compute_type=cfg.whisper_compute_type
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to pre-load Whisper model: {e}")
 
     for idx, url in enumerate(url_list):
         t_start = time.time()

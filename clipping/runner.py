@@ -47,6 +47,37 @@ def run_pipeline(cfg, whisper_model_instance=None) -> list[dict]:
         yt_cookies=getattr(cfg, "yt_cookies", None),
     )
 
+    if getattr(cfg, "dj_mode", False):
+        # DJ Mode — audio-driven selection, no transcription / LLM.
+        data_segmen = []
+        hasil_json = _select_dj_moments(cfg)
+    else:
+        hasil_json, data_segmen = _select_with_ai(cfg, whisper_model_instance)
+
+    return _render_selected(cfg, hasil_json, data_segmen)
+
+
+def _select_dj_moments(cfg) -> list[dict]:
+    """DJ Mode selection (or reload of a hand-edited selection)."""
+    from . import dj_mode
+
+    sel_path = os.path.join(cfg.outputs_dir, "gemini_response.json")
+    if getattr(cfg, "load_gemini_json", False) and os.path.exists(sel_path):
+        print(f"\n🔄 [DJ Mode] Sélection rechargée depuis : {sel_path}")
+        with open(sel_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    hasil_json = dj_mode.find_moments(cfg)
+    with open(sel_path, "w", encoding="utf-8") as f:
+        json.dump(hasil_json, f, indent=4, ensure_ascii=False)
+    print(f"💾 Sélection DJ enregistrée (modifiable puis --load-gemini-json) : {sel_path}")
+    return hasil_json
+
+
+def _select_with_ai(cfg, whisper_model_instance=None):
+    """Original selection: transcription + LLM analysis."""
+    source_platform = getattr(cfg, "source_platform", "youtube")
+
     # Step 2 — Transcribe
     transkrip_lengkap = ""
     data_segmen = []
@@ -97,6 +128,11 @@ def run_pipeline(cfg, whisper_model_instance=None) -> list[dict]:
             json.dump(hasil_json, f, indent=4, ensure_ascii=False)
         print(f"💾 Raw AI response tersimpan di: {gemini_output_path}")
 
+    return hasil_json, data_segmen
+
+
+def _render_selected(cfg, hasil_json, data_segmen) -> list[dict]:
+    """Steps 4-8: metadata, diarization, encoder setup, render, manifest."""
     # Step 4 — Metadata normalisation
     hasil_json = metadata.normalize_and_validate(hasil_json)
     metadata.print_preview(hasil_json)

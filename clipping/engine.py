@@ -158,6 +158,31 @@ def download_video(
     else:
         print(f"      🎯 Source quality: up to {download_source_height}p", flush=True)
 
+    # --- Local file (e.g. Colab upload or mounted Google Drive) ---
+    if source_platform == "local":
+        src = os.path.abspath(os.path.expanduser(url))
+        if not os.path.isfile(src):
+            raise RuntimeError(f"❌ Fichier local introuvable : {src}")
+        if os.path.abspath(output_path) != src:
+            import shutil
+            # Remux to .mp4 when needed so the rest of the pipeline can read it.
+            if src.lower().endswith(".mp4"):
+                if os.path.lexists(output_path):
+                    os.remove(output_path)
+                try:
+                    os.symlink(src, output_path)
+                except OSError:
+                    shutil.copyfile(src, output_path)
+            else:
+                import subprocess
+                subprocess.run(
+                    ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                     "-i", src, "-c", "copy", output_path],
+                    check=True,
+                )
+        print(f"      ✅ Fichier local utilisé : {src}", flush=True)
+        return
+
     # --- Google Drive: use gdown instead of yt-dlp ---
     if source_platform == "gdrive":
         _download_gdrive(url, output_path)

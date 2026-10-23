@@ -197,7 +197,9 @@ def proses_klip(
     print(f"{'=' * 70}")
 
     typography_plan = clip.get("typography_plan", [])
-    siapkan_font_tipografi(cfg)
+    if not getattr(cfg, "dj_mode", False):
+        # DJ mode burns no subtitles, so subtitle fonts are not needed.
+        siapkan_font_tipografi(cfg)
 
     h_ts, m_ts, a_hook, a_main = (
         f"h_{rank}.ts",
