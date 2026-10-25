@@ -66,6 +66,9 @@ def buat_thumbnail(video_path, output_image_path, teks, cfg):
     Raises:
         Exception: If image processing or saving fails.
     """
+    if getattr(cfg, "thumb_style", "classic") == "modern":
+        return _thumbnail_modern(video_path, output_image_path, teks, cfg)
+
     if not os.path.exists(cfg.file_font_thumbnail):
         urllib.request.urlretrieve(cfg.url_font_thumbnail, cfg.file_font_thumbnail)
 
@@ -105,3 +108,69 @@ def buat_thumbnail(video_path, output_image_path, teks, cfg):
     img.save(output_image_path)
 
 
+
+
+MODERN_FONT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "assets", "fonts", "Unbounded-Bold.ttf")
+)
+
+
+def _pick_frame(video_path, at_seconds):
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_POS_MSEC, at_seconds * 1000)
+    ret, frame = cap.read()
+    cap.release()
+    return frame if ret else None
+
+
+def _thumbnail_modern(video_path, output_image_path, teks, cfg):
+    """Clean thumbnail: one bold geometric title, no outline, soft bottom gradient."""
+    # Skip the hook + transition so the frame comes from the clip itself.
+    at = float(getattr(cfg, "durasi_hook", 3)) + float(getattr(cfg, "mire_duration", 1.0)) + 4.0
+    frame = _pick_frame(video_path, at)
+    if frame is None:
+        frame = _pick_frame(video_path, 1.0)
+    if frame is None:
+        return None
+
+    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).convert("RGBA")
+    w, h = img.size
+
+    # Bottom gradient: transparent at 55% height to 75% black at the bottom.
+    grad = Image.new("L", (1, h), 0)
+    start = int(h * 0.55)
+    for y in range(start, h):
+        grad.putpixel((0, y), int(190 * ((y - start) / max(1, h - start)) ** 1.4))
+    shade = Image.new("RGBA", (w, h), (0, 0, 0, 255))
+    shade.putalpha(grad.resize((w, h)))
+    img = Image.alpha_composite(img, shade)
+
+    font_path = getattr(cfg, "thumb_font", None) or MODERN_FONT
+    text = (teks or "").strip().upper()
+    draw = ImageDraw.Draw(img)
+
+    # Largest size that fits 82% of the width on one line.
+    size = int(w * 0.16)
+    tracking = 0.04
+    while size > 12:
+        font = ImageFont.truetype(font_path, size)
+        spacing = int(size * tracking)
+        total = sum(draw.textlength(c, font=font) for c in text) + spacing * max(0, len(text) - 1)
+        if total <= w * 0.82:
+            break
+        size -= 2
+
+    ascent, descent = font.getmetrics()
+    y = int(h * 0.80) - ascent
+    x = (w - total) / 2
+    for c in text:
+        draw.text((x, y), c, font=font, fill=(255, 255, 255, 255))
+        x += draw.textlength(c, font=font) + spacing
+
+    # Thin accent line above the title.
+    line_w = int(w * 0.08)
+    ly = y - int(size * 0.45)
+    draw.rectangle([(w - line_w) // 2, ly, (w + line_w) // 2, ly + max(2, size // 22)], fill=(255, 255, 255, 230))
+
+    img.convert("RGB").save(output_image_path, quality=92)
+    return output_image_path

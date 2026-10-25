@@ -710,6 +710,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Text written on every thumbnail in DJ mode.",
     )
     dj_group.add_argument(
+        "--thumb-style", choices=["classic", "modern"], default=None,
+        help="Thumbnail look: 'modern' (clean geometric title, soft gradient; default in DJ mode) "
+             "or 'classic' (big outlined text on a darkened frame).",
+    )
+    dj_group.add_argument(
+        "--thumb-font", type=str, default=None,
+        help="Path to a .ttf/.otf font for modern thumbnails (default: bundled Unbounded Bold).",
+    )
+    dj_group.add_argument(
         "--transition", choices=["glitch", "mire"], default=None,
         help="Transition between hook and clip: 'glitch' (VHS noise) or 'mire' "
              "(retro TV colour bars + 1 kHz beep). Default: mire in DJ mode, glitch otherwise.",
@@ -1042,6 +1051,8 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         dj_include_label=args.dj_include_label,
         dj_thumb_text=args.dj_thumb_text,
         transition_style=args.transition or ("mire" if args.dj_mode else "glitch"),
+        thumb_style=args.thumb_style or ("modern" if args.dj_mode else "classic"),
+        thumb_font=args.thumb_font,
         mire_duration=args.mire_duration,
         mire_beep_db=min(args.mire_beep_db, -15.0),
     )
