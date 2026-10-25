@@ -8,7 +8,7 @@ Réponses et messages en français, directs et concis.
 
 1. **Le premier titre du set est toujours le clip n°1.**
    Chaque lancement en mode DJ passe `--dj-include <début>-<fin du 1er titre>`
-   (ex. `0:00-6:00`) et `--dj-include-label "<nom du titre>"`.
+   (ex. `0:00-2:50`) et `--dj-include-label "<nom du titre>"`.
    Le clip forcé reste entièrement dans cette plage (voir `detect_moments` dans
    `clipping/dj_mode.py`). Si la fin du premier titre est inconnue, demander à KOI ;
    ne jamais lancer sans.
