@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(python run_upload.py:*)",
+      "Bash(python3 run_upload.py:*)",
+      "Bash(python run_fb_upload.py:*)",
+      "Bash(python3 run_fb_upload.py:*)",
+      "Bash(git push:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh" }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require-first-track.sh" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint-python.sh" }]
+      }
+    ]
+  }
+}

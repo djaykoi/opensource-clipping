@@ -23,3 +23,10 @@ dependencies = [
 
 [project.scripts]
 clipping = "main:main"
+
+[tool.ruff]
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+# Only real errors (syntax errors, undefined names) — no style rules.
+select = ["E9", "F63", "F7", "F82"]

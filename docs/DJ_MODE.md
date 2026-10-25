@@ -46,7 +46,7 @@ Structure d'un clip : **hook de 3 s sur le drop → mire TV + bip → montée �
 | `--dj-bpm` | auto | Force le tempo. |
 | `--dj-title` | `DJ Set` | Titre des clips, miniatures et métadonnées. |
 | `--dj-hashtags` | `#djset #house #dj` | Hashtags ajoutés à chaque clip. |
-| `--dj-include` | — | Force un clip dans une plage, ex. `0:00-6:00` pour ton propre titre en ouverture. Plusieurs plages possibles. Ces clips passent en premier. |
+| `--dj-include` | — | Force un clip dans une plage, ex. `0:00-6:00` pour ton propre titre en ouverture. Plusieurs plages possibles. Ces clips passent en premier et restent entièrement dans leur plage (la fenêtre est décalée à l'intérieur plutôt que coupée). Dans le notebook : `PREMIER_TITRE`, obligatoire. |
 | `--dj-include-label` | — | Nom affiché pour les clips forcés (ex. le titre du morceau). |
 | `--dj-thumb-text` | `HELLO WORLD MIX` | Texte écrit sur toutes les miniatures. |
 | `--transition` | `mire` | Transition entre le hook et le clip : `mire` (mire TV + bip 1 kHz) ou `glitch`. |

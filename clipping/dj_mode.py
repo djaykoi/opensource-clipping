@@ -277,6 +277,7 @@ def detect_moments(
         i = a + int(np.argmax(np.where(seg_valid, seg, -np.inf)))
         kind = "drop" if rise[i] >= 2.0 else "peak"
         j = _refine(i) if kind == "drop" else i
+        j = min(max(j, a), b - 1)  # refinement must not leave the range
         moments.append({
             "kind": kind,
             "anchor": float(times[j]),
@@ -335,13 +336,31 @@ def detect_moments(
             half = (pre_bars + post_bars) * bar / 2
             start = a - half
             end = a + half
-        # Clamp while keeping whole bars when possible.
-        while start < 0:
+        # Clamp while keeping whole bars when possible. A forced clip stays
+        # inside its own range, so the artist's track never bleeds into the
+        # next one.
+        lo, hi = 0.0, duration
+        if m.get("forced"):
+            lo = max(lo, m["range"][0])
+            hi = min(hi, m["range"][1])
+            # Slide the window back inside the range first (keeps the clip
+            # length: more build-up instead of a shorter clip).
+            while end > hi and start - bar >= lo:
+                start -= bar
+                end -= bar
+            while start < lo and end + bar <= hi:
+                start += bar
+                end += bar
+        while start < lo and start + bar < end:
             start += bar
-        while end > duration:
+        while end > hi and end - bar > start:
             end -= bar
-        m["start_time"] = round(max(0.0, start), 3)
-        m["end_time"] = round(min(duration, end), 3)
+        start, end = max(lo, start), min(hi, end)
+        end = max(end, start + min(bar, hi - start))
+        if not (start <= m["anchor"] < end):  # keep the hook inside the clip
+            m["anchor"] = max(start, end - bar)
+        m["start_time"] = round(start, 3)
+        m["end_time"] = round(end, 3)
 
     debug = {
         "times": times,
@@ -469,12 +488,18 @@ def save_energy_plot(debug: dict, moments: list[dict], duration: float, path: st
     pts = np.stack([x[::step], y[::step]], axis=1).reshape(-1, 1, 2)
     cv2.polylines(img, [pts], False, (180, 180, 180), 1, cv2.LINE_AA)
 
+    # Same order as build_clip_json, so the numbers match the clip ranks.
+    rest = [m for m in moments if not m.get("forced")]
     for rank, m in enumerate(
-        sorted([m for m in moments if m["kind"] == "drop"], key=lambda m: -m["score"])
-        + sorted([m for m in moments if m["kind"] == "peak"], key=lambda m: -m["score"]),
+        [m for m in moments if m.get("forced")]
+        + sorted([m for m in rest if m["kind"] == "drop"], key=lambda m: -m["score"])
+        + sorted([m for m in rest if m["kind"] == "peak"], key=lambda m: -m["score"]),
         start=1,
     ):
-        color = (60, 200, 255) if m["kind"] == "drop" else (120, 220, 120)
+        if m.get("forced"):
+            color = (255, 120, 220)
+        else:
+            color = (60, 200, 255) if m["kind"] == "drop" else (120, 220, 120)
         xs = int(m["start_time"] / duration * (W - 1))
         xe = int(m["end_time"] / duration * (W - 1))
         xa = int(m["anchor"] / duration * (W - 1))
@@ -487,7 +512,7 @@ def save_energy_plot(debug: dict, moments: list[dict], duration: float, path: st
     for k in range(0, int(duration) + 1, 300):
         xk = int(k / duration * (W - 1))
         cv2.putText(img, _fmt_tc(k), (xk + 2, H - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (140, 140, 140), 1)
-    cv2.putText(img, "bass energy  |  orange = drop  green = peak", (10, 14),
+    cv2.putText(img, "bass energy  |  pink = forced (first track)  orange = drop  green = peak", (10, 14),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
     cv2.imwrite(path, img)
 
