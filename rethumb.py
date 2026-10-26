@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Redo only the thumbnails of an existing run (no video re-render).
 
-    python rethumb.py --text "HHWM #7"
-    python rethumb.py --text "HHWM #7" --style classic --outputs outputs
+    python rethumb.py --text "HWM #7"                      # chic : Hello World Mix / HWM #7
+    python rethumb.py --text "Hello World Mix | HWM #7"
+    python rethumb.py --text "HWM #7" --style modern --outputs outputs
 """
 
 import argparse
@@ -18,15 +19,16 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--text", required=True, help="Text written on every thumbnail.")
     p.add_argument("--outputs", default="outputs", help="Folder with highlight_rank_N_ready.mp4.")
-    p.add_argument("--style", choices=["modern", "classic"], default="modern")
-    p.add_argument("--font", default=None, help="Optional .ttf/.otf for the modern style.")
+    p.add_argument("--style", choices=["chic", "modern", "classic"], default="chic")
+    p.add_argument("--font", default=None, help="Optional .ttf/.otf for the title.")
+    p.add_argument("--title", default="Hello World Mix", help="Chic style: main title line.")
     p.add_argument("--hook-duration", type=float, default=3.0)
     p.add_argument("--mire-duration", type=float, default=1.0)
     a = p.parse_args()
 
     base = os.getcwd()
     cfg = SimpleNamespace(
-        thumb_style=a.style, thumb_font=a.font,
+        thumb_style=a.style, thumb_font=a.font, thumb_title=a.title,
         durasi_hook=a.hook_duration, mire_duration=a.mire_duration,
         file_font_thumbnail=os.path.join(base, "Montserrat-Black.ttf"),
         url_font_thumbnail="https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Black.ttf",

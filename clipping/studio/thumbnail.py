@@ -66,6 +66,8 @@ def buat_thumbnail(video_path, output_image_path, teks, cfg):
     Raises:
         Exception: If image processing or saving fails.
     """
+    if getattr(cfg, "thumb_style", "classic") == "chic":
+        return _thumbnail_chic(video_path, output_image_path, teks, cfg)
     if getattr(cfg, "thumb_style", "classic") == "modern":
         return _thumbnail_modern(video_path, output_image_path, teks, cfg)
 
@@ -173,4 +175,94 @@ def _thumbnail_modern(video_path, output_image_path, teks, cfg):
     draw.rectangle([(w - line_w) // 2, ly, (w + line_w) // 2, ly + max(2, size // 22)], fill=(255, 255, 255, 230))
 
     img.convert("RGB").save(output_image_path, quality=92)
+    return output_image_path
+
+
+_FONTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "assets", "fonts"))
+CHIC_SERIF = os.path.join(_FONTS_DIR, "CormorantGaramond-MediumItalic.ttf")
+CHIC_SANS = os.path.join(_FONTS_DIR, "Jost-Light.ttf")
+
+
+def _tracked_width(draw, text, font, spacing):
+    return sum(draw.textlength(c, font=font) for c in text) + spacing * max(0, len(text) - 1)
+
+
+def _draw_tracked(draw, x, y, text, font, spacing, fill):
+    for c in text:
+        draw.text((x, y), c, font=font, fill=fill)
+        x += draw.textlength(c, font=font) + spacing
+
+
+def _thumbnail_chic(video_path, output_image_path, teks, cfg):
+    """Editorial thumbnail: italic serif title, hairline rule, widely tracked light caps.
+
+    Text: "Title | Subtitle". Without "|", the title is cfg.thumb_title
+    (default "Hello World Mix") and the whole text becomes the subtitle.
+    Everything stays between 70% and 86% of the height so it survives
+    the 3:4 profile-grid crop and is not hidden by the app UI.
+    """
+    at = float(getattr(cfg, "durasi_hook", 3)) + float(getattr(cfg, "mire_duration", 1.0)) + 4.0
+    frame = _pick_frame(video_path, at)
+    if frame is None:
+        frame = _pick_frame(video_path, 1.0)
+    if frame is None:
+        return None
+
+    raw = (teks or "").strip()
+    if "|" in raw:
+        title, sub = (part.strip() for part in raw.split("|", 1))
+    else:
+        title = (getattr(cfg, "thumb_title", None) or "Hello World Mix").strip()
+        sub = raw
+    sub = sub.upper()
+
+    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).convert("RGBA")
+    w, h = img.size
+
+    # Slight overall dim + deep bottom gradient (48% -> 100%).
+    img = Image.alpha_composite(img, Image.new("RGBA", (w, h), (0, 0, 0, 40)))
+    grad = Image.new("L", (1, h), 0)
+    start = int(h * 0.48)
+    for y in range(start, h):
+        grad.putpixel((0, y), int(215 * ((y - start) / max(1, h - start)) ** 1.25))
+    shade = Image.new("RGBA", (w, h), (8, 6, 4, 255))
+    shade.putalpha(grad.resize((w, h)))
+    img = Image.alpha_composite(img, shade)
+
+    serif_path = getattr(cfg, "thumb_font", None) or CHIC_SERIF
+    draw = ImageDraw.Draw(img)
+    ivory = (246, 240, 228, 255)
+
+    # Title: largest italic serif that fits 76% of the width.
+    size = int(w * 0.15)
+    while size > 12:
+        f_title = ImageFont.truetype(serif_path, size)
+        tw = draw.textlength(title, font=f_title)
+        if tw <= w * 0.76:
+            break
+        size -= 2
+    asc, _ = f_title.getmetrics()
+    base_y = int(h * 0.765)
+    draw.text(((w - tw) / 2, base_y - asc), title, font=f_title, fill=ivory)
+
+    # Subtitle: light sans caps, wide tracking.
+    sub_y = base_y + int(size * 0.62)
+    if sub:
+        s_size = max(12, int(w * 0.042))
+        f_sub = ImageFont.truetype(CHIC_SANS, s_size)
+        spacing = int(s_size * 0.55)
+        sw = _tracked_width(draw, sub, f_sub, spacing)
+        s_asc, _ = f_sub.getmetrics()
+        sx = (w - sw) / 2
+        _draw_tracked(draw, sx, sub_y - s_asc, sub, f_sub, spacing, ivory)
+
+        # Hairlines either side of the subtitle.
+        gap = int(s_size * 1.2)
+        line_len = int(w * 0.07)
+        ly = sub_y - int(s_asc * 0.36)
+        th = max(1, w // 720)
+        draw.rectangle([sx - gap - line_len, ly, sx - gap, ly + th], fill=(246, 240, 228, 200))
+        draw.rectangle([sx + sw + gap, ly, sx + sw + gap + line_len, ly + th], fill=(246, 240, 228, 200))
+
+    img.convert("RGB").save(output_image_path, quality=94)
     return output_image_path

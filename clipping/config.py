@@ -710,13 +710,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Text written on every thumbnail in DJ mode.",
     )
     dj_group.add_argument(
-        "--thumb-style", choices=["classic", "modern"], default=None,
-        help="Thumbnail look: 'modern' (clean geometric title, soft gradient; default in DJ mode) "
+        "--thumb-style", choices=["classic", "modern", "chic"], default=None,
+        help="Thumbnail look: 'chic' (italic serif title + tracked caps; default in DJ mode), "
+             "'modern' (clean geometric title, soft gradient) "
              "or 'classic' (big outlined text on a darkened frame).",
     )
     dj_group.add_argument(
         "--thumb-font", type=str, default=None,
-        help="Path to a .ttf/.otf font for modern thumbnails (default: bundled Unbounded Bold).",
+        help="Path to a .ttf/.otf font for the thumbnail title (default depends on the style).",
+    )
+    dj_group.add_argument(
+        "--thumb-title", type=str, default="Hello World Mix",
+        help="Chic style: main title line; the thumbnail text becomes the subtitle "
+             "(or write 'Title | Subtitle' in the thumbnail text).",
     )
     dj_group.add_argument(
         "--transition", choices=["glitch", "mire"], default=None,
@@ -1051,7 +1057,8 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         dj_include_label=args.dj_include_label,
         dj_thumb_text=args.dj_thumb_text,
         transition_style=args.transition or ("mire" if args.dj_mode else "glitch"),
-        thumb_style=args.thumb_style or ("modern" if args.dj_mode else "classic"),
+        thumb_style=args.thumb_style or ("chic" if args.dj_mode else "classic"),
+        thumb_title=args.thumb_title,
         thumb_font=args.thumb_font,
         mire_duration=args.mire_duration,
         mire_beep_db=min(args.mire_beep_db, -15.0),
